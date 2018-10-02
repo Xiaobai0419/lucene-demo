@@ -33,15 +33,15 @@ public class Indexer {
      * @throws IOException
      */
     public Indexer(String indexDir) throws IOException {
-        //得到索引所在目录的路径
-        Directory directory = FSDirectory.open(Paths.get(indexDir));
-        // 标准分词器
-//        Analyzer analyzer = new StandardAnalyzer();
-        Analyzer analyzer = new SmartChineseAnalyzer();
-        //保存用于创建IndexWriter的所有配置。
-        IndexWriterConfig iwConfig = new IndexWriterConfig(analyzer);
-        //实例化IndexWriter
-        writer = new IndexWriter(directory, iwConfig);
+//        //得到索引所在目录的路径
+//        Directory directory = FSDirectory.open(Paths.get(indexDir));
+//        // 标准分词器
+////        Analyzer analyzer = new StandardAnalyzer();
+//        Analyzer analyzer = new SmartChineseAnalyzer();
+//        //保存用于创建IndexWriter的所有配置。
+//        IndexWriterConfig iwConfig = new IndexWriterConfig(analyzer);
+//        //实例化IndexWriter
+//        writer = new IndexWriter(directory, iwConfig);
     }
 
     /**
