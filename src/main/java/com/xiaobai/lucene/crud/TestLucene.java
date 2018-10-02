@@ -90,11 +90,16 @@ public class TestLucene {
         // 通过indexSearcher去检索索引目录
         IndexReader indexReader = DirectoryReader.open(d);
         IndexSearcher indexSearcher = new IndexSearcher(indexReader);
-
+        /**
+         *  第一种查询，TermQuery
+         *  这是关键字查询
+         *  如果按照author查，因为author没有分词，所以查"马化腾"可以查询出来(StringField不进行分词，整体算一个)
+         *  如果按照content查，因为content分词了，如果是单字分词器，只能通过某一个字查出来，比如"中"(TextField进行分词)
+         */
         // 这是一个搜索条件，根据这个搜索条件我们来进行查找
         // term是根据哪个字段进行检索，以及字段对应值
         //================================================
-        //注意：这样是查询不出，只有单字才能查询出来
+        //注意：这样是查询不出，只有单字才能查询出来---------------------->无法按"培训"查出，可按"培"查出
         Query query = new TermQuery(new Term("content", "培"));
 
         // 搜索先搜索索引目录

@@ -80,13 +80,19 @@ public class LuceneDao {
     public List<Article> findIndex(String keywords, int start, int count) {
         try {
             IndexSearcher indexSearcher = LuceneUtils.getIndexSearcher();
-
+            /**
+             *  第二种查询：字符串搜索..
+             *  使用查询字符串：QueryParser+ MultiFieldQueryParser的查询方式
+             *  1、QueryParser：只在一个字段中查询
+             *  2、MultiFieldQueryParser：可以在多个字段查询
+             *  用来查询可以分词的字段，只要你输入的一段文本中包含分词，就会检索出来
+             */
             //===========================================================
-            //这里是第二种query方式，不是termQuery
+            //这里是第二种query方式，不是termQuery---------------------->可按搜索文本分词后的字匹配（可以分词的字段）
             QueryParser queryParser = new MultiFieldQueryParser(//文档多字段检索，其中"title"字段被赋予的相关度权重高，搜索靠前
                     LuceneUtils.getMatchVersion(), new String[] { "title",
                     "content" }, LuceneUtils.getAnalyzer());
-            Query query = queryParser.parse(keywords);
+            Query query = queryParser.parse(keywords);//这里（创建索引时）content，title字段均按字分词，是否分词（TextField分词、StringField不分词）对查询有不同影响：前者按词拆分匹配，后者按整个字段匹配
             TopDocs topDocs = indexSearcher.search(query, 100);
             System.out.println("总记录数：" + topDocs.totalHits);
             //表示返回的结果集

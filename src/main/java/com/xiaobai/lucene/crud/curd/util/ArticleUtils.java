@@ -16,7 +16,7 @@ public class ArticleUtils {
     public static Document articleToDocument(Article article) {
         Document document = new Document();
         IntField idField = new IntField("id", article.getId(), Store.YES);
-        //StringField不进行分词（整体算一个）
+        //StringField不进行分词（整体算一个）--------------------------------------->不分词的按整体查，所以可以查到"马化腾",注意这个！！！
         StringField authoField = new StringField("author", article.getAuthor(), Store.YES);
         StringField linkField = new StringField("link", article.getLink(), Store.YES);
         //TextField进行分词
