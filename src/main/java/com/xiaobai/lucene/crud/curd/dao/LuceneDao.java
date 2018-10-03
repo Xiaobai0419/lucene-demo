@@ -29,8 +29,8 @@ public class LuceneDao {
     /**
      * 增删改索引都是通过IndexWriter对象来完成
      */
-    public void addIndex(Article article) {
-        try {
+    public void addIndex(Article article) {//每次不是从头创建索引，而是在已有的索引目录增量添加
+        try {//如果要重新建立索引，可用更新操作，先删除所有此前的，再从头创建添加
             IndexWriter indexWriter = LuceneUtils.getIndexWriter();
             indexWriter.addDocument(ArticleUtils.articleToDocument(article));
             indexWriter.close();
