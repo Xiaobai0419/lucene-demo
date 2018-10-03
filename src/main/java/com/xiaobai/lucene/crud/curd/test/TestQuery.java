@@ -1,7 +1,10 @@
 package com.xiaobai.lucene.crud.curd.test;
 
+import com.xiaobai.lucene.crud.curd.domain.Article;
 import com.xiaobai.lucene.crud.curd.util.LuceneUtils;
 import com.xiaobai.lucene.crud.curd.util.Type;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.*;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.Term;
@@ -9,11 +12,16 @@ import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
+import org.apache.lucene.search.highlight.*;
+import org.apache.lucene.search.highlight.Scorer;
 import org.apache.lucene.util.Version;
 import org.junit.Before;
 import org.junit.Test;
+import org.wltea.analyzer.lucene.IKAnalyzer;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestQuery {
 
@@ -324,6 +332,108 @@ public class TestQuery {
             System.out.println(document.get("content"));
             System.out.println(document.get("author"));
             System.out.println(document.get("link"));
+        }
+    }
+
+    /**
+     * 高亮
+     * 查询是通过IndexSearch提供的(分页)
+     * @throws IOException
+     */
+    @Test
+    public void testHighlighterQuery() throws IOException {
+//        Analyzer analyzer = new StandardAnalyzer(Version.LUCENE_CURRENT);
+        Analyzer analyzer = new IKAnalyzer();
+        int start = 0;
+        int count = 100;
+        try {
+            IndexSearcher indexSearcher = LuceneUtils.getIndexSearcher();
+
+            // ===========================================================
+            // 这里是第二种query方式，不是termQuery
+            QueryParser queryParser = new MultiFieldQueryParser(
+                    Version.LUCENE_CURRENT, new String[] { "title",
+                    "content" }, analyzer);
+            Query query = queryParser.parse("国庆节");//IKAnalyzer无法查询"国庆"，可查询"国庆节"，只查出了带有"国庆节"的，并高亮整个词（<font color='red'><b>国庆节</b></font>）而不是每个字（<font color='red'><b>国</b></font><font color='red'><b>庆</b></font><font color='red'><b>节</b></font>），查不出带"国"的，是分词所致，"国庆"不是其分词，也不按单字分词
+//            Query query = queryParser.parse("国庆");//StandardAnalyzer可以查询"国庆",是按字分词，带"国"的也被匹配了
+            TopDocs topDocs = indexSearcher.search(query, 100);
+            System.out.println("总记录数：" + topDocs.totalHits);
+
+            /**
+             * 添加设置文字高亮begin 使用lucene自带的高亮器进行高亮显示
+             */
+            // html页面高亮显示的格式化，默认是<b></b>
+            Formatter formatter = new SimpleHTMLFormatter(
+                    "<font color='red'><b>", "</b></font>");
+            // 执行查询条件，因为高亮的值就是查询条件
+            Scorer scorer = new QueryScorer(query);//将查询条件分词后全部高亮
+            Highlighter highlighter = new Highlighter(formatter, scorer);
+
+            // 设置文字摘要，此时摘要大小
+            int fragmentSize = 100;
+            Fragmenter fragmenter = new SimpleFragmenter(fragmentSize);
+            highlighter.setTextFragmenter(fragmenter);
+            /** 添加设置文字高亮end */
+            // 表示返回的结果集
+            ScoreDoc[] scoreDocs = topDocs.scoreDocs;
+            List<Article> list = new ArrayList<Article>();
+
+            int min = Math.min(scoreDocs.length, start + count);
+            for (int i = start; i < min; i++) {
+                System.out.println("相关度得分：" + scoreDocs[i].score);
+                // 获取查询结果的文档的惟一编号，只有获取惟一编号，才能获取该编号对应的数据
+                int doc = scoreDocs[i].doc;
+                // 使用编号，获取真正的数据
+                Document document = indexSearcher.doc(doc);
+
+                /** 获取文字高亮的信息 begin */
+                // 获取文字的高亮，一次只能获取一个字段高亮的结果，如果获取不到，返回null值
+                // 高亮之后的title
+                // 注意：如果这个字段当中没有包含搜索关键字，你对这个字段的值进行高亮，返回的是null
+                String title = highlighter.getBestFragment(//获取结果摘要
+                        analyzer, "title",//这个分词器用于在摘要中分词查询关键词，将它们高亮
+                        document.get("title"));//高亮和摘要都是在获取搜索结果之后的处理
+                // 如果null表示没有高亮的结果，如果高亮的结果，应该将原值返回
+                if (title == null) {
+                    title = document.get("title");
+                    if (title != null && title.length() > fragmentSize) {
+                        // 截串，从0开始
+                        title = title.substring(0, fragmentSize);
+                    }
+                }
+                System.out.println("-------title:" + title);
+                // 高亮之后的content
+                // 注意：如果这个字段当中没有包含搜索关键字，你对这个字段的值进行高亮，返回的是null
+                String content = highlighter.getBestFragment(
+                        analyzer, "content",
+                        document.get("content"));//获取摘要，将摘要赋值给内容，只打印摘要
+                // 如果null表示没有高亮的结果，如果高亮的结果，应该将原值返回
+                if (content == null) {
+                    content = document.get("content");
+                    if (content != null && content.length() > fragmentSize) {
+                        // 截串，从0开始
+                        content = content.substring(0, fragmentSize);
+                    }
+                }
+                System.out.println("--------content:" + content);
+                /** 获取文字高亮的信息 end */
+                Article article = new Article();
+                article.setId(Integer.parseInt(document.get("id")));
+                article.setAuthor(document.get("author"));
+                article.setLink(document.get("link"));
+                article.setTitle(title);//高亮之后的
+                article.setContent(content);//高亮之后的
+                list.add(article);
+            }
+            for(Article article : list) {
+                System.out.println(article.getId());
+                System.out.println(article.getTitle());
+                System.out.println(article.getContent());
+                System.out.println(article.getAuthor());
+                System.out.println(article.getLink());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
