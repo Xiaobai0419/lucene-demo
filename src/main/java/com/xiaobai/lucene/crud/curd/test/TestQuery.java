@@ -9,6 +9,7 @@ import org.apache.lucene.queryparser.classic.MultiFieldQueryParser;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.*;
+import org.apache.lucene.util.Version;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -109,7 +110,6 @@ public class TestQuery {
 //                Query query2 = NumericRangeQuery.newIntRange("id", 0, 15, true, true);//可以查到0-10的
                 Query query1 = NumericRangeQuery.newIntRange("id", 0, 15, true, true);
                 Query query2 = NumericRangeQuery.newIntRange("id", 2, 6, true, true);//仍可查到0-15
-                // select * from table where title=? or content=?
                 // 必须满足第一个条件...
                 queryB.add(query1, BooleanClause.Occur.MUST);
                 // 可以满足第二个条件
@@ -122,7 +122,7 @@ public class TestQuery {
 
     @Before
     public void initQuery() throws ParseException {//修改Query类型
-        query = buildQuery(Type.BOOLEAN);
+//        query = buildQuery(Type.BOOLEAN);
 //        query = buildQuery(Type.ALL);
 //        query = buildQuery(Type.FUZZY);
 //        query = buildQuery(Type.PARSER);
@@ -130,6 +130,7 @@ public class TestQuery {
 //        query = buildQuery(Type.RANGE);
 //        query = buildQuery(Type.REGEX);
 //        query = buildQuery(Type.TERM);
+        query = buildBooleanQuery();
     }
 
     @Test
@@ -145,6 +146,40 @@ public class TestQuery {
             System.out.println(document.get("author"));
             System.out.println(document.get("link"));
         }
+    }
+
+    /**
+     * 模拟京东高级搜索
+     * @return
+     * @throws ParseException
+     */
+    private Query buildBooleanQuery() throws ParseException {
+        //封装查询条件(使用BooleanQuery对象，连接多个查询条件)
+        BooleanQuery query = new BooleanQuery();
+
+        //条件一（所属单位）
+        //词条查询
+        TermQuery query1 = new TermQuery(new Term("content", "中"));//无法匹配"中国",只能单个字匹配
+        //Occur.SHOULD相当于or
+        query.add(query1, BooleanClause.Occur.MUST);//Occur.MUST相当于sql语句的and
+
+        //条件二（图纸类别）
+        //词条查询
+        Query query2 = NumericRangeQuery.newIntRange("id", 1, 10, true, true);
+        query.add(query2, BooleanClause.Occur.MUST);
+
+        //条件三（文件名称和文件描述）
+        //多个字段进行检索的时候，查询使用QueryPaser
+        //要是直接new QueryParser()，也可以，但是只能查询一个字段
+        // select * from table where title=? or content=?
+        QueryParser queryParser = new MultiFieldQueryParser(Version.LUCENE_CURRENT,new String[]{"title","content"},LuceneUtils.getAnalyzer());
+        Query query3 = queryParser.parse("第一");//匹配两个字段中有一个带"第一"的
+//        QueryParser queryParser = new MultiFieldQueryParser(Version.LUCENE_CURRENT,new String[]{"author"},LuceneUtils.getAnalyzer());
+//        Query query3 = queryParser.parse("陈驰1");//无法使用MultiFieldQueryParser匹配没有分词的author字段，即使完全精确匹配也无法匹配上，即使只匹配这一个字段也无法匹配上，原因待查
+//        QueryParser queryParser = new MultiFieldQueryParser(Version.LUCENE_CURRENT,new String[]{"title","content"},LuceneUtils.getAnalyzer());
+//        Query query3 = queryParser.parse("天下");
+        query.add(query3, BooleanClause.Occur.MUST);//相当于sql语句的and
+        return query;
     }
 
     public static IndexWriter getIndexWriter() {
